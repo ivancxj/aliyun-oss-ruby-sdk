@@ -376,6 +376,13 @@ module Aliyun
         @protocol.copy_object(name, source, dest, args)
       end
 
+      def copy_object2(source_bucket, source, dest, opts = {})
+        args = opts.dup
+
+        args[:content_type] ||= get_content_type(dest)
+        @protocol.copy_object2(source_bucket, name, source, dest, args)
+      end
+
       # 删除一个object
       # @param key [String] Object的名字
       def delete_object(key)

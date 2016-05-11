@@ -888,6 +888,45 @@ module Aliyun
         copy_result
       end
 
+      # 支持跨bucket拷贝
+      # source_bucket 源bucket
+      # bucket_name 目标bucket
+      def copy_object2(source_bucket, bucket_name, src_object_name, dst_object_name, opts = {})
+        logger.debug("Begin copy object, bucket: #{bucket_name}, "\
+                     "source object: #{src_object_name}, dest object: "\
+                     "#{dst_object_name}, options: #{opts}")
+
+        headers = {
+            'x-oss-copy-source' =>
+                @http.get_resource_path(source_bucket, src_object_name),
+            'content-type' => opts[:content_type]
+        }
+        (opts[:metas] || {})
+            .each { |k, v| headers["x-oss-meta-#{k.to_s}"] = v.to_s }
+
+        {
+            :acl => 'x-oss-object-acl',
+            :meta_directive => 'x-oss-metadata-directive'
+        }.each { |k, v| headers[v] = opts[k] if opts[k] }
+
+        headers.merge!(get_copy_conditions(opts[:condition])) if opts[:condition]
+
+        r = @http.put(
+            {:bucket => bucket_name, :object => dst_object_name},
+            {:headers => headers})
+
+        doc = parse_xml(r.body)
+        copy_result = {
+            :last_modified => get_node_text(
+                doc.root, 'LastModified') { |x| Time.parse(x) },
+            :etag => get_node_text(doc.root, 'ETag')
+        }.reject { |_, v| v.nil? }
+
+        logger.debug("Done copy object")
+
+        copy_result
+      end
+
       # Delete an object from the bucket
       # @param bucket_name [String] the bucket name
       # @param object_name [String] the object name
